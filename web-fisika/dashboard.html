@@ -1,0 +1,1989 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - SIM-LAB Inventaris Fisika</title>
+    <!-- Library SheetJS (XLSX) untuk Impor & Ekspor File Excel (.xlsx / .csv) langsung di browser -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <!-- Library Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --deep-navy: #0F2342;
+            --navy-light: #17315B;
+            --sky-blue: #38BDF8;
+            --sky-soft: #E0F2FE;
+            --warm-cream: #FBF9F5;
+            --pure-white: #FFFFFF;
+            --text-main: #0F2342;
+            --text-muted: #64748B;
+            --border-color: #E2E8F0;
+            --success-bg: #F0FDF4;
+            --success-text: #16A34A;
+            --warning-bg: #FFFBEB;
+            --warning-text: #D97706;
+            --danger-bg: #FEF2F2;
+            --danger-text: #DC2626;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--warm-cream);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ================= SIDEBAR KIRI ================= */
+        .sidebar {
+            width: 260px;
+            background-color: var(--deep-navy);
+            color: var(--pure-white);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 22px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .brand-icon {
+            width: 38px;
+            height: 38px;
+            background-color: rgba(56, 189, 248, 0.16);
+            color: var(--sky-blue);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .brand-text h1 { font-size: 1.05rem; font-weight: 700; }
+        .brand-text span { font-size: 0.75rem; color: var(--sky-blue); }
+
+        .sidebar-menu {
+            padding: 16px 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            overflow-y: auto;
+        }
+
+        .menu-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #94A3B8;
+            padding: 8px 12px 4px;
+            font-weight: 700;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 14px;
+            border-radius: 10px;
+            color: #CBD5E1;
+            font-size: 0.88rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .nav-item:hover { background-color: var(--navy-light); color: var(--pure-white); }
+        .nav-item.active {
+            background-color: var(--sky-blue);
+            color: var(--deep-navy);
+            font-weight: 700;
+        }
+
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(10, 24, 46, 0.45);
+        }
+
+        .user-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .user-meta { overflow: hidden; }
+
+        .user-role-badge {
+            display: inline-block;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 5px;
+            background-color: rgba(56, 189, 248, 0.2);
+            color: var(--sky-blue);
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .user-email {
+            font-size: 0.76rem;
+            color: #E2E8F0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .btn-logout {
+            background: rgba(255, 255, 255, 0.12);
+            border: none;
+            color: var(--pure-white);
+            padding: 7px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.76rem;
+            font-weight: 600;
+        }
+
+        .btn-logout:hover { background: var(--danger-text); }
+
+        /* ================= MAIN CONTENT KANAN ================= */
+        .main-wrapper {
+            margin-left: 260px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .topbar {
+            background-color: var(--pure-white);
+            padding: 16px 28px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .page-title h2 { font-size: 1.2rem; font-weight: 700; color: var(--deep-navy); }
+        .page-title p { font-size: 0.8rem; color: var(--text-muted); }
+
+        .content-area { padding: 24px 28px; max-width: 1450px; }
+
+        .view-panel { display: none; }
+        .view-panel.active { display: block; }
+
+        /* ================= 6 KARTU STATISTIK ================= */
+        .stats-grid-6 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        .stat-card {
+            background-color: var(--pure-white);
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--sky-blue);
+        }
+
+        .stat-card.navy { border-left-color: var(--deep-navy); }
+        .stat-card.good { border-left-color: var(--success-text); }
+        .stat-card.danger { border-left-color: var(--danger-text); }
+        .stat-card.warning { border-left-color: var(--warning-text); }
+
+        .stat-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
+        .stat-value { font-size: 1.55rem; font-weight: 700; color: var(--deep-navy); }
+        .stat-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
+
+        /* ================= VISUALISASI DIAGRAM RINGAN ================= */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 18px;
+            margin-bottom: 22px;
+        }
+
+        .bar-row { margin-bottom: 14px; }
+        .bar-row:last-child { margin-bottom: 0; }
+
+        .bar-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            gap: 8px;
+        }
+
+        .bar-track {
+            width: 100%;
+            height: 12px;
+            background-color: var(--warm-cream);
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 999px;
+        }
+
+        .condition-split {
+            display: flex;
+            height: 28px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 18px 0 14px;
+            background: var(--warm-cream);
+            border: 1px solid var(--border-color);
+        }
+
+        .cond-good-bar { background-color: var(--deep-navy); height: 100%; }
+        .cond-bad-bar { background-color: var(--danger-text); height: 100%; }
+        .cond-empty-bar { background-color: #CBD5E1; height: 100%; }
+
+        .legend-row {
+            display: flex;
+            gap: 16px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            flex-wrap: wrap;
+        }
+
+        .dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        /* ================= CARD, FILTER & TABEL INVENTARIS ================= */
+        .card {
+            background-color: var(--pure-white);
+            border-radius: 14px;
+            padding: 22px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .card-header h3 { font-size: 1.02rem; font-weight: 700; color: var(--deep-navy); }
+        .card-header p { font-size: 0.78rem; color: var(--text-muted); }
+
+        .editor-mode-banner {
+            background: linear-gradient(90deg, #E0F2FE 0%, #F0F9FF 100%);
+            border: 1px solid #7DD3FC;
+            color: var(--deep-navy);
+            padding: 11px 16px;
+            border-radius: 11px;
+            font-size: 0.83rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-toolbar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+            gap: 10px;
+            background-color: var(--warm-cream);
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 16px;
+        }
+
+        .filter-group label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .filter-input, .filter-select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--pure-white);
+            font-size: 0.83rem;
+            color: var(--deep-navy);
+            outline: none;
+        }
+
+        .filter-input:focus, .filter-select:focus {
+            border-color: var(--sky-blue);
+        }
+
+        .btn {
+            padding: 8px 14px;
+            font-size: 0.83rem;
+            font-weight: 600;
+            border-radius: 9px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+
+        .btn:hover { opacity: 0.92; }
+        .btn-primary { background-color: var(--deep-navy); color: var(--pure-white); }
+        .btn-sky { background-color: var(--sky-blue); color: var(--deep-navy); }
+        .btn-success { background-color: var(--success-text); color: var(--pure-white); }
+        .btn-danger { background-color: var(--danger-text); color: var(--pure-white); }
+        .btn-outline { background-color: var(--pure-white); border: 1px solid var(--border-color); color: var(--deep-navy); }
+        .btn-outline:hover { background-color: var(--warm-cream); }
+        .btn-sm { padding: 5px 10px; font-size: 0.76rem; border-radius: 7px; }
+
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.84rem; }
+        th {
+            background-color: var(--warm-cream);
+            color: var(--deep-navy);
+            font-weight: 700;
+            padding: 11px 10px;
+            border-bottom: 2px solid var(--border-color);
+            white-space: nowrap;
+        }
+        td {
+            padding: 10px 10px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+        tr:hover td { background-color: rgba(224, 242, 254, 0.25); }
+        tr.editing-row td { background-color: #F0F9FF !important; }
+
+        /* Inline Editing Controls di Dalam Tabel */
+        .inline-input {
+            width: 100%;
+            min-width: 90px;
+            padding: 5px 8px;
+            border: 1.5px solid var(--sky-blue);
+            border-radius: 6px;
+            background: var(--pure-white);
+            font-size: 0.82rem;
+            color: var(--deep-navy);
+            font-weight: 600;
+        }
+
+        .inline-num {
+            width: 62px;
+            padding: 5px 6px;
+            border: 1.5px solid var(--sky-blue);
+            border-radius: 6px;
+            background: var(--pure-white);
+            font-size: 0.82rem;
+            color: var(--deep-navy);
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .inline-select {
+            padding: 5px 7px;
+            border: 1.5px solid var(--sky-blue);
+            border-radius: 6px;
+            background: var(--pure-white);
+            font-size: 0.8rem;
+            color: var(--deep-navy);
+            font-weight: 600;
+        }
+
+        /* Thumbnail Foto Alat */
+        .thumb-box {
+            width: 58px;
+            height: 58px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            background-color: var(--warm-cream);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .thumb-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .thumb-edit-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 35, 66, 0.72);
+            color: #fff;
+            font-size: 0.64rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            padding: 3px;
+        }
+
+        .detail-photo-box {
+            width: 100%;
+            height: 220px;
+            border-radius: 12px;
+            border: 1.5px solid var(--border-color);
+            background-color: var(--warm-cream);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .detail-photo-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background-color: var(--pure-white);
+        }
+
+        .badge {
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            display: inline-block;
+            white-space: nowrap;
+        }
+
+        .badge-good { background-color: var(--success-bg); color: var(--success-text); }
+        .badge-warn { background-color: var(--warning-bg); color: var(--warning-text); }
+        .badge-bad { background-color: var(--danger-bg); color: var(--danger-text); }
+        .badge-info { background-color: var(--sky-soft); color: var(--deep-navy); }
+        .badge-neutral { background-color: #F1F5F9; color: #475569; }
+
+        /* Pagination */
+        .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .page-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .page-btn {
+            padding: 6px 11px;
+            border: 1px solid var(--border-color);
+            background: var(--pure-white);
+            color: var(--deep-navy);
+            border-radius: 7px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .page-btn.active {
+            background: var(--deep-navy);
+            color: var(--pure-white);
+            border-color: var(--deep-navy);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        /* Kategori & Peta Penyimpanan */
+        .category-grid, .storage-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(275px, 1fr));
+            gap: 16px;
+        }
+
+        .category-card {
+            background: var(--pure-white);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 18px;
+        }
+
+        .cat-code {
+            display: inline-block;
+            background: var(--deep-navy);
+            color: var(--sky-blue);
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 5px;
+            margin-bottom: 8px;
+        }
+
+        .cabinet-box {
+            background: var(--pure-white);
+            border: 2px solid var(--deep-navy);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .cabinet-title {
+            background: var(--deep-navy);
+            color: var(--pure-white);
+            padding: 10px 14px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .cabinet-title span { color: var(--sky-blue); font-size: 0.78rem; }
+
+        .shelf-list { padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--warm-cream); }
+        .shelf-slot {
+            background: var(--pure-white);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--sky-blue);
+            padding: 9px 11px;
+            border-radius: 7px;
+            font-size: 0.8rem;
+        }
+        .shelf-slot strong { display: block; margin-bottom: 3px; color: var(--deep-navy); }
+
+        /* Modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 35, 66, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 200;
+        }
+
+        .modal-backdrop.show { display: flex; }
+
+        .modal-card {
+            background: var(--pure-white);
+            width: 100%;
+            max-width: 520px;
+            max-height: 92vh;
+            overflow-y: auto;
+            border-radius: 16px;
+            padding: 24px;
+            border-top: 5px solid var(--sky-blue);
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            gap: 12px;
+        }
+
+        .detail-row span:first-child { color: var(--text-muted); font-weight: 600; }
+        .detail-row span:last-child { color: var(--deep-navy); font-weight: 600; text-align: right; }
+
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; }
+        .form-control {
+            width: 100%;
+            padding: 9px 11px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 9px;
+            background: var(--warm-cream);
+            font-size: 0.86rem;
+        }
+
+        /* Toast Notifikasi Simpan */
+        .toast-notif {
+            position: fixed;
+            bottom: 22px;
+            right: 22px;
+            background: var(--deep-navy);
+            color: var(--pure-white);
+            padding: 12px 18px;
+            border-radius: 10px;
+            border-left: 4px solid var(--sky-blue);
+            font-size: 0.84rem;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(15, 35, 66, 0.25);
+            z-index: 999;
+            display: none;
+        }
+        .toast-notif.show { display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- ================= SIDEBAR KIRI ================= -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="2"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" transform="rotate(30 12 12)"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" transform="rotate(-30 12 12)"/>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <h1>SIM-LAB Fisika</h1>
+                <span>Inventaris & Sirkulasi</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-menu">
+            <div class="menu-label">Menu Utama</div>
+            <button class="nav-item active" data-target="view-dashboard" data-title="Dashboard Inventaris" data-desc="Ringkasan statistik dan visualisasi otomatis 68 alat inventaris fisika (10 kategori)">Dashboard</button>
+            <button class="nav-item" data-target="view-inventaris" data-title="Data Inventaris" data-desc="Katalog lengkap 68 alat praktikum fisika beserta foto, stok, kondisi, dan edit langsung untuk Editor">Data Inventaris</button>
+            <button class="nav-item" data-target="view-peminjaman" data-title="Peminjaman & Pengembalian" data-desc="Pengajuan peminjaman alat dan persetujuan pengembalian">Peminjaman & Pengembalian</button>
+
+            <div class="menu-label">Pengorganisasian</div>
+            <button class="nav-item" data-target="view-kategori" data-title="Kategori Alat" data-desc="Pengelompokan otomatis alat berdasarkan 10 kategori bidang praktikum fisika">Kategori Alat</button>
+            <button class="nav-item" data-target="view-peta" data-title="Peta Penyimpanan" data-desc="Distribusi lemari (A1–E2), rak penyimpanan, serta area khusus mesin">Peta Penyimpanan</button>
+            <button class="nav-item" data-target="view-pemeliharaan" data-title="Pemeliharaan Alat" data-desc="Daftar alat dengan unit rusak atau status dalam perbaikan">Pemeliharaan Alat</button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-meta">
+                    <span class="user-role-badge" id="sidebarRole">Viewer</span>
+                    <div class="user-email" id="sidebarEmail">viewer@labfisika.ac.id</div>
+                </div>
+                <button class="btn-logout" onclick="logout()">Keluar</button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ================= AREA KANAN ================= -->
+    <div class="main-wrapper">
+        <header class="topbar">
+            <div class="page-title">
+                <h2 id="headerTitle">Dashboard Inventaris</h2>
+                <p id="headerDesc">Ringkasan statistik dan visualisasi otomatis 68 alat inventaris fisika (10 kategori)</p>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                <button id="btnResetDb" class="btn btn-outline btn-sm" onclick="resetDatabase()" title="Kembalikan data awal bawaan sistem">Reset Data Awal</button>
+                <button class="btn btn-sky btn-sm" onclick="openBorrowModal()">+ Ajukan Peminjaman</button>
+            </div>
+        </header>
+
+        <main class="content-area">
+
+            <!-- 1. PANEL DASHBOARD -->
+            <section id="view-dashboard" class="view-panel active">
+                <div class="stats-grid-6">
+                    <div class="stat-card navy">
+                        <div class="stat-label">Total Jenis Alat</div>
+                        <div class="stat-value" id="statJenisAlat">0</div>
+                        <div class="stat-sub">Kode inventaris unik</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Keseluruhan Alat</div>
+                        <div class="stat-value" id="statTotalUnit">0</div>
+                        <div class="stat-sub">Total kuantitas unit</div>
+                    </div>
+                    <div class="stat-card good">
+                        <div class="stat-label">Alat Kondisi Baik</div>
+                        <div class="stat-value" id="statAlatBaik">0</div>
+                        <div class="stat-sub">Unit siap praktikum</div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="stat-label">Alat Kondisi Rusak</div>
+                        <div class="stat-value" id="statAlatRusak">0</div>
+                        <div class="stat-sub">Unit perlu perbaikan</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-label">Jumlah Kategori Alat</div>
+                        <div class="stat-value" id="statJumlahKategori">0</div>
+                        <div class="stat-sub">Kelompok praktikum</div>
+                    </div>
+                    <div class="stat-card navy">
+                        <div class="stat-label">Lemari & Rak Penyimpanan</div>
+                        <div class="stat-value" id="statLemariRak">0 / 0</div>
+                        <div class="stat-sub">Lemari induk / Slot rak</div>
+                    </div>
+                </div>
+
+                <!-- 3 Visualisasi Diagram Otomatis -->
+                <div class="charts-grid">
+                    <div class="card" style="margin-bottom:0;">
+                        <div class="card-header">
+                            <div>
+                                <h3>Distribusi Alat Berdasarkan Kategori</h3>
+                                <p id="chartCatSubtitle">Total kuantitas unit & jenis alat per kategori fisika</p>
+                            </div>
+                        </div>
+                        <div id="chartCategoryBars"></div>
+                    </div>
+
+                    <div class="card" style="margin-bottom:0;">
+                        <div class="card-header">
+                            <div>
+                                <h3>Perbandingan Kondisi Baik & Rusak</h3>
+                                <p>Proporsi unit dalam kondisi baik vs rusak</p>
+                            </div>
+                        </div>
+                        <div id="chartConditionVisual"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Jumlah Alat Berdasarkan Lokasi Penyimpanan</h3>
+                            <p>Distribusi jenis alat & unit pada masing-masing kelompok lemari (Lemari A1 – E2 & Area Khusus)</p>
+                        </div>
+                    </div>
+                    <div id="chartLocationBars"></div>
+                </div>
+            </section>
+
+            <!-- 2. PANEL DATA INVENTARIS (EDIT LANGSUNG DI WEB KHUSUS EDITOR + FOTO/QTY/KONDISI/STATUS TERISI) -->
+            <section id="view-inventaris" class="view-panel">
+                <div id="editorInfoBanner" class="editor-mode-banner" style="display:none;">
+                    <span>✏️ <strong>Mode Editor Aktif:</strong> Anda dapat mengedit <strong>langsung di baris tabel</strong> (klik tombol <em>Edit Langsung</em> atau klik ganda pada baris alat) untuk mengubah Foto, Nama Alat, Kategori, Lokasi Rak, Jumlah Baik/Rusak, dan Status, lalu klik <strong>Simpan</strong>.</span>
+                    <span class="badge badge-info">Perubahan Otomatis Tersimpan</span>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Daftar Seluruh Alat Praktikum Fisika</h3>
+                            <p id="inventoryCountInfo">Menampilkan 0 dari 0 alat</p>
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleExcelImport(event)">
+                            <button id="btnImportExcel" class="btn btn-success btn-sm" onclick="document.getElementById('excelFileInput').click()" title="Unggah file Excel (.xlsx / .csv) untuk memperbarui data inventaris">📥 Impor Excel</button>
+                            <button class="btn btn-outline btn-sm" onclick="exportToExcel()" title="Unduh data inventaris saat ini ke format Excel (.xlsx)">📤 Ekspor Excel</button>
+                            <button class="btn btn-outline btn-sm" onclick="resetFilters()">Reset Filter</button>
+                            <button id="btnTambahAlat" class="btn btn-primary btn-sm" onclick="openAddToolModal()">+ Tambah Alat</button>
+                        </div>
+                    </div>
+
+                    <!-- Toolbar Pencarian, Filter & Pengurutan -->
+                    <div class="filter-toolbar">
+                        <div class="filter-group">
+                            <label for="searchNameInput">Cari Nama Alat</label>
+                            <input type="text" id="searchNameInput" class="filter-input" placeholder="Contoh: Jangka Sorong..." oninput="onFilterChange()">
+                        </div>
+                        <div class="filter-group">
+                            <label for="searchCodeInput">Cari Kode Inventaris</label>
+                            <input type="text" id="searchCodeInput" class="filter-input" placeholder="Contoh: DIM-001..." oninput="onFilterChange()">
+                        </div>
+                        <div class="filter-group">
+                            <label for="filterCategory">Filter Kategori</label>
+                            <select id="filterCategory" class="filter-select" onchange="onFilterChange()">
+                                <option value="">Semua Kategori</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filterLocation">Filter Lemari & Rak</label>
+                            <select id="filterLocation" class="filter-select" onchange="onFilterChange()">
+                                <option value="">Semua Lokasi</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filterCondition">Filter Kondisi Alat</label>
+                            <select id="filterCondition" class="filter-select" onchange="onFilterChange()">
+                                <option value="">Semua Kondisi</option>
+                                <option value="baik">Ada Unit Baik</option>
+                                <option value="rusak">Ada Unit Rusak</option>
+                                <option value="tersedia">Status: Tersedia</option>
+                                <option value="dipinjam">Status: Dipinjam</option>
+                                <option value="perbaikan">Status: Dalam Perbaikan</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="sortBySelect">Urutkan Berdasarkan</label>
+                            <select id="sortBySelect" class="filter-select" onchange="onFilterChange()">
+                                <option value="no-asc">No. Inventaris (01 - 68)</option>
+                                <option value="name-asc">Nama Alat (A - Z)</option>
+                                <option value="name-desc">Nama Alat (Z - A)</option>
+                                <option value="code-asc">Kode Inventaris (A - Z)</option>
+                                <option value="code-desc">Kode Inventaris (Z - A)</option>
+                                <option value="category-asc">Kategori (A - Z)</option>
+                                <option value="location-asc">Lokasi Rak (A - Z)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Input File Tersembunyi untuk Upload Foto Inline per Baris (Editor) -->
+                    <input type="file" id="inlinePhotoInput" accept="image/*" style="display:none;" onchange="handleInlinePhotoUpload(event)">
+
+                    <!-- Tabel Utama -->
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>Foto</th>
+                                    <th>Kode Inventaris</th>
+                                    <th>Nama Alat Praktikum</th>
+                                    <th>Kategori</th>
+                                    <th>Lokasi Rak</th>
+                                    <th>Total Qty</th>
+                                    <th>Kondisi (Baik / Rusak)</th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventarisTableBody"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="pagination-bar">
+                        <div id="paginationInfo">Halaman 1 dari 1</div>
+                        <div class="page-buttons" id="paginationControls"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. PANEL PEMINJAMAN & PENGEMBALIAN -->
+            <section id="view-peminjaman" class="view-panel">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Sirkulasi Peminjaman & Pengembalian Alat</h3>
+                        <button class="btn btn-primary btn-sm" onclick="openBorrowModal()">+ Form Peminjaman Baru</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Peminjam (NIM/NIP)</th>
+                                    <th>Kode & Nama Alat</th>
+                                    <th>Qty</th>
+                                    <th>Periode Pinjam</th>
+                                    <th>Status</th>
+                                    <th>Tindakan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="peminjamanTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. PANEL KATEGORI ALAT -->
+            <section id="view-kategori" class="view-panel">
+                <div class="category-grid" id="dynamicCategoryGrid"></div>
+            </section>
+
+            <!-- 5. PANEL PETA PENYIMPANAN -->
+            <section id="view-peta" class="view-panel">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Panduan & Catatan Penataan Rak Penyimpanan</h3>
+                            <p>Referensi resmi penataan alat laboratorium berdasarkan kategori dan keamanan perangkat</p>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Lokasi</th>
+                                    <th>Kategori</th>
+                                    <th>Catatan Penataan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="panduanRakTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="storage-grid" id="dynamicStorageGrid"></div>
+            </section>
+
+            <!-- 6. PANEL PEMELIHARAAN ALAT -->
+            <section id="view-pemeliharaan" class="view-panel">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Daftar Alat Rusak & Dalam Perbaikan</h3>
+                            <p>Otomatis terdeteksi dari database inventaris berdasarkan jumlah unit rusak atau status perbaikan</p>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Kode Alat</th>
+                                    <th>Nama Alat</th>
+                                    <th>Kategori</th>
+                                    <th>Lokasi</th>
+                                    <th>Jumlah Rusak</th>
+                                    <th>Status</th>
+                                    <th>Keterangan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="maintenanceTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ================= MODAL DETAIL ALAT ================= -->
+    <div id="detailModal" class="modal-backdrop">
+        <div class="modal-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h3 style="color:var(--deep-navy);">Detail Alat Praktikum</h3>
+                <button class="btn btn-outline btn-sm" onclick="closeDetailModal()">✕</button>
+            </div>
+            <div id="detailModalBody"></div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL FORM PEMINJAMAN ================= -->
+    <div id="borrowModal" class="modal-backdrop">
+        <div class="modal-card">
+            <h3 style="margin-bottom: 14px; color: var(--deep-navy);">Ajukan Peminjaman Alat</h3>
+            <form id="borrowForm">
+                <div class="form-group">
+                    <label>Pilih Alat Praktikum (Stok Baik Tersedia)</label>
+                    <select id="selectBorrowTool" class="form-control" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Nama Peminjam</label>
+                    <input type="text" id="inputBorrowerName" class="form-control" placeholder="Nama Lengkap" required>
+                </div>
+                <div class="form-group">
+                    <label>NIM / NIP</label>
+                    <input type="text" id="inputBorrowerNim" class="form-control" placeholder="Contoh: 222153012" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label>Jumlah Unit</label>
+                        <input type="number" id="inputBorrowQty" class="form-control" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Tanggal Kembali</label>
+                        <input type="date" id="inputReturnDate" class="form-control" required>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
+                    <button type="button" class="btn btn-outline" onclick="closeBorrowModal()">Batal</button>
+                    <button type="submit" class="btn btn-primary">Kirim Pengajuan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL TAMBAH ALAT (EDITOR) ================= -->
+    <div id="addToolModal" class="modal-backdrop">
+        <div class="modal-card">
+            <h3 style="margin-bottom: 14px; color: var(--deep-navy);">Tambah Data Alat Baru</h3>
+            <form id="addToolForm">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label>Kode Inventaris (Unik)</label>
+                        <input type="text" id="newToolCode" class="form-control" placeholder="DIM-004 / RAW-013" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Kategori</label>
+                        <input type="text" id="newToolCat" class="form-control" placeholder="Pengukuran Panjang dan Dimensi" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Nama Alat Praktikum</label>
+                    <input type="text" id="newToolName" class="form-control" placeholder="Nama alat..." required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label>Lokasi Lemari & Rak</label>
+                        <input type="text" id="newToolLocation" class="form-control" placeholder="Lemari A1 - Rak 1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Satuan</label>
+                        <input type="text" id="newToolUnit" class="form-control" placeholder="Unit / Set / Buah" value="Unit" required>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label>Jumlah Baik</label>
+                        <input type="number" id="newToolGood" class="form-control" min="0" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Jumlah Rusak</label>
+                        <input type="number" id="newToolBroken" class="form-control" min="0" value="0" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Foto Alat (Opsional - Unggah Gambar)</label>
+                    <input type="file" id="newToolPhotoFile" class="form-control" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>Keterangan (Opsional)</label>
+                    <input type="text" id="newToolNotes" class="form-control" placeholder="Spesifikasi singkat...">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
+                    <button type="button" class="btn btn-outline" onclick="closeAddToolModal()">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Alat</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toastNotif" class="toast-notif">Perubahan berhasil disimpan!</div>
+
+    <script>
+        // ================= KONEKSI LOGIN DENGAN index.html =================
+        const activeUser = JSON.parse(localStorage.getItem('simlab_active_user')) || {
+            email: 'viewer@labfisika.ac.id',
+            role: 'Viewer'
+        };
+
+        document.getElementById('sidebarRole').textContent = activeUser.role;
+        document.getElementById('sidebarEmail').textContent = activeUser.email;
+
+        if (activeUser.role !== 'Editor') {
+            document.getElementById('btnTambahAlat').style.display = 'none';
+            document.getElementById('btnResetDb').style.display = 'none';
+            document.getElementById('btnImportExcel').style.display = 'none';
+        } else {
+            document.getElementById('editorInfoBanner').style.display = 'flex';
+        }
+
+        function logout() {
+            localStorage.removeItem('simlab_active_user');
+            window.location.href = 'index.html';
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toastNotif');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2600);
+        }
+
+        // ================= GENERATOR FOTO ILUSTRASI ALAT FISIKA OTOMATIS (SVG DATA URI) =================
+        function getDefaultToolPhoto(item) {
+            if (item.photo && item.photo.trim() !== '') return item.photo;
+
+            const prefix = (item.code || '').split('-')[0].toUpperCase();
+            const paletteMap = {
+                'DIM': { bg: '#E0F2FE', fg: '#0F2342', accent: '#0284C7', label: 'DIMENSI' },
+                'MAS': { bg: '#FEF3C7', fg: '#78350F', accent: '#D97706', label: 'MASSA' },
+                'WAK': { bg: '#EDE9FE', fg: '#4C1D95', accent: '#7C3AED', label: 'WAKTU' },
+                'KAL': { bg: '#FEE2E2', fg: '#7F1D1D', accent: '#DC2626', label: 'KALOR' },
+                'MEK': { bg: '#DCFCE7', fg: '#14532D', accent: '#16A34A', label: 'MEKANIKA' },
+                'FLU': { bg: '#CCFBF1', fg: '#134E4A', accent: '#0D9488', label: 'FLUIDA' },
+                'LIS': { bg: '#FEF9C3', fg: '#713F12', accent: '#CA8A04', label: 'LISTRIK' },
+                'GEL': { bg: '#E0E7FF', fg: '#1E1B4B', accent: '#4F46E5', label: 'GELOMBANG' },
+                'OPT': { bg: '#FCE7F3', fg: '#831843', accent: '#DB2777', label: 'OPTIK' },
+                'PEN': { bg: '#F1F5F9', fg: '#0F172A', accent: '#334155', label: 'PENDUKUNG' },
+                'RAW': { bg: '#FFEDD5', fg: '#7C2D12', accent: '#EA580C', label: 'PERAWATAN' }
+            };
+            const theme = paletteMap[prefix] || { bg: '#E0F2FE', fg: '#0F2342', accent: '#38BDF8', label: 'FISIKA' };
+
+            const iconPaths = {
+                'DIM': '<rect x="24" y="42" width="72" height="10" rx="2" fill="none" stroke="' + theme.fg + '" stroke-width="3"/><rect x="38" y="34" width="16" height="28" rx="2" fill="' + theme.accent + '" opacity="0.35" stroke="' + theme.fg + '" stroke-width="2.5"/><line x1="30" y1="42" x2="30" y2="48" stroke="' + theme.fg + '" stroke-width="2"/><line x1="60" y1="42" x2="60" y2="48" stroke="' + theme.fg + '" stroke-width="2"/><line x1="75" y1="42" x2="75" y2="48" stroke="' + theme.fg + '" stroke-width="2"/>',
+                'MAS': '<path d="M30 66 L90 66 L82 48 L38 48 Z" fill="' + theme.accent + '" opacity="0.3" stroke="' + theme.fg + '" stroke-width="3"/><line x1="60" y1="28" x2="60" y2="48" stroke="' + theme.fg + '" stroke-width="3"/><line x1="34" y1="34" x2="86" y2="34" stroke="' + theme.fg + '" stroke-width="3"/><circle cx="34" cy="40" r="6" fill="' + theme.fg + '"/><circle cx="86" cy="40" r="6" fill="' + theme.fg + '"/>',
+                'WAK': '<circle cx="60" cy="48" r="20" fill="#fff" stroke="' + theme.fg + '" stroke-width="3"/><rect x="55" y="22" width="10" height="6" rx="1" fill="' + theme.accent + '"/><line x1="60" y1="48" x2="60" y2="36" stroke="' + theme.accent + '" stroke-width="3"/><line x1="60" y1="48" x2="70" y2="48" stroke="' + theme.fg + '" stroke-width="2.5"/>',
+                'KAL': '<rect x="55" y="24" width="10" height="36" rx="5" fill="#fff" stroke="' + theme.fg + '" stroke-width="2.5"/><circle cx="60" cy="62" r="9" fill="' + theme.accent + '"/><line x1="60" y1="36" x2="60" y2="60" stroke="' + theme.accent + '" stroke-width="4"/>',
+                'MEK': '<circle cx="48" cy="44" r="14" fill="none" stroke="' + theme.fg + '" stroke-width="3"/><circle cx="74" cy="54" r="10" fill="' + theme.accent + '" opacity="0.35" stroke="' + theme.fg + '" stroke-width="2.5"/><line x1="30" y1="68" x2="90" y2="68" stroke="' + theme.fg + '" stroke-width="3"/>',
+                'FLU': '<path d="M44 26 L44 62 Q44 68 50 68 L70 68 Q76 68 76 62 L76 26 Z" fill="#fff" stroke="' + theme.fg + '" stroke-width="3"/><path d="M45 48 L75 48 L75 62 Q75 67 70 67 L50 67 Q45 67 45 62 Z" fill="' + theme.accent + '" opacity="0.45"/>',
+                'LIS': '<rect x="38" y="24" width="44" height="46" rx="6" fill="#fff" stroke="' + theme.fg + '" stroke-width="3"/><path d="M62 34 L52 48 L60 48 L56 60 L68 45 L60 45 Z" fill="' + theme.accent + '"/>',
+                'GEL': '<rect x="28" y="28" width="64" height="40" rx="5" fill="#fff" stroke="' + theme.fg + '" stroke-width="3"/><path d="M34 48 Q42 32 50 48 T66 48 T82 48" fill="none" stroke="' + theme.accent + '" stroke-width="3"/>',
+                'OPT': '<ellipse cx="60" cy="48" rx="10" ry="22" fill="' + theme.accent + '" opacity="0.3" stroke="' + theme.fg + '" stroke-width="3"/><line x1="26" y1="42" x2="94" y2="54" stroke="' + theme.accent + '" stroke-width="2.5"/><line x1="26" y1="54" x2="94" y2="42" stroke="' + theme.fg + '" stroke-width="2"/>',
+                'PEN': '<rect x="34" y="30" width="52" height="36" rx="4" fill="#fff" stroke="' + theme.fg + '" stroke-width="3"/><rect x="44" y="38" width="16" height="14" fill="' + theme.accent + '" opacity="0.6"/><circle cx="72" cy="44" r="4" fill="' + theme.fg + '"/><circle cx="72" cy="56" r="4" fill="' + theme.accent + '"/>',
+                'RAW': '<path d="M36 62 L68 30 L76 38 L44 70 Z" fill="' + theme.accent + '" opacity="0.4" stroke="' + theme.fg + '" stroke-width="2.5"/><circle cx="74" cy="32" r="8" fill="none" stroke="' + theme.fg + '" stroke-width="3"/>'
+            };
+            const graphic = iconPaths[prefix] || iconPaths['DIM'];
+
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="100" viewBox="0 0 120 100">
+                <rect width="120" height="100" rx="12" fill="${theme.bg}"/>
+                ${graphic}
+                <rect x="18" y="75" width="84" height="17" rx="4" fill="${theme.fg}"/>
+                <text x="60" y="87" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF" text-anchor="middle">${item.code}</text>
+            </svg>`;
+
+            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        }
+
+        // ================= DATA BAWAAN RESMI (TERISI LENGKAP: FOTO, KUANTITI, KONDISI & STATUS) =================
+        const INITIAL_INVENTORY = [{"no": 1, "code": "DIM-001", "name": "Jangka Sorong 0,05 mm", "category": "Pengukuran Panjang dan Dimensi", "goodCount": 10, "brokenCount": 1, "totalQty": 11, "unit": "Unit", "location": "Lemari A1 - Rak 1", "status": "Tersedia", "notes": "Simpan alat ukur presisi dalam kotak; hindari benturan dan kelembapan.", "photo": ""}, {"no": 2, "code": "DIM-002", "name": "Jangka Sorong 0,02 mm", "category": "Pengukuran Panjang dan Dimensi", "goodCount": 8, "brokenCount": 0, "totalQty": 8, "unit": "Unit", "location": "Lemari A1 - Rak 1", "status": "Tersedia", "notes": "Simpan alat ukur presisi dalam kotak; hindari benturan dan kelembapan.", "photo": ""}, {"no": 3, "code": "DIM-003", "name": "Mikrometer Skrup", "category": "Pengukuran Panjang dan Dimensi", "goodCount": 12, "brokenCount": 1, "totalQty": 13, "unit": "Unit", "location": "Lemari A1 - Rak 1", "status": "Tersedia", "notes": "Simpan alat ukur presisi dalam kotak; hindari benturan dan kelembapan.", "photo": ""}, {"no": 4, "code": "MAS-001", "name": "Neraca Ohaus 4 Lengan", "category": "Pengukuran Massa", "goodCount": 4, "brokenCount": 0, "totalQty": 4, "unit": "Unit", "location": "Lemari A2 - Rak 1", "status": "Tersedia", "notes": "Neraca pada permukaan stabil; stopwatch disimpan terpisah dan rapi.", "photo": ""}, {"no": 5, "code": "MAS-002", "name": "Neraca Ohaus 3 Lengan", "category": "Pengukuran Massa", "goodCount": 6, "brokenCount": 1, "totalQty": 7, "unit": "Unit", "location": "Lemari A2 - Rak 1", "status": "Tersedia", "notes": "Neraca pada permukaan stabil; stopwatch disimpan terpisah dan rapi.", "photo": ""}, {"no": 6, "code": "MAS-003", "name": "Timbangan Digital", "category": "Pengukuran Massa", "goodCount": 5, "brokenCount": 0, "totalQty": 5, "unit": "Unit", "location": "Lemari A2 - Rak 2", "status": "Tersedia", "notes": "Neraca pada permukaan stabil; stopwatch disimpan terpisah dan rapi.", "photo": ""}, {"no": 7, "code": "MAS-004", "name": "Sensor Timbangan", "category": "Pengukuran Massa", "goodCount": 3, "brokenCount": 0, "totalQty": 3, "unit": "Unit", "location": "Lemari A2 - Rak 2", "status": "Tersedia", "notes": "Neraca pada permukaan stabil; stopwatch disimpan terpisah dan rapi.", "photo": ""}, {"no": 8, "code": "MAS-005", "name": "Timbangan Presisi", "category": "Pengukuran Massa", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari A2 - Rak 2", "status": "Tersedia", "notes": "Neraca pada permukaan stabil; stopwatch disimpan terpisah dan rapi.", "photo": ""}, {"no": 9, "code": "WAK-001", "name": "Stopwatch Analog", "category": "Pengukuran Waktu", "goodCount": 10, "brokenCount": 2, "totalQty": 12, "unit": "Unit", "location": "Lemari A2 - Rak 3", "status": "Tersedia", "notes": "Neraca pada permukaan stabil; stopwatch disimpan terpisah dan rapi.", "photo": ""}, {"no": 10, "code": "WAK-002", "name": "Stopwatch Digital", "category": "Pengukuran Waktu", "goodCount": 12, "brokenCount": 0, "totalQty": 12, "unit": "Unit", "location": "Lemari A2 - Rak 3", "status": "Tersedia", "notes": "Neraca pada permukaan stabil; stopwatch disimpan terpisah dan rapi.", "photo": ""}, {"no": 11, "code": "KAL-001", "name": "Termometer", "category": "Pengukuran Suhu dan Kalor", "goodCount": 15, "brokenCount": 2, "totalQty": 17, "unit": "Unit", "location": "Lemari B1 - Rak 1", "status": "Tersedia", "notes": "Termometer dan perangkat termal disimpan aman sesuai bahan dan petunjuk alat.", "photo": ""}, {"no": 12, "code": "KAL-002", "name": "Kit Thermodinamika", "category": "Pengukuran Suhu dan Kalor", "goodCount": 4, "brokenCount": 0, "totalQty": 4, "unit": "Unit", "location": "Lemari B1 - Rak 2", "status": "Tersedia", "notes": "Termometer dan perangkat termal disimpan aman sesuai bahan dan petunjuk alat.", "photo": ""}, {"no": 13, "code": "KAL-003", "name": "Alat Sistem Radiasi Termal", "category": "Pengukuran Suhu dan Kalor", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari B1 - Rak 2", "status": "Tersedia", "notes": "Termometer dan perangkat termal disimpan aman sesuai bahan dan petunjuk alat.", "photo": ""}, {"no": 14, "code": "KAL-004", "name": "Thermoelektrik Effect", "category": "Pengukuran Suhu dan Kalor", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari B1 - Rak 2", "status": "Dipinjam", "notes": "Termometer dan perangkat termal disimpan aman sesuai bahan dan petunjuk alat.", "photo": ""}, {"no": 15, "code": "MEK-001", "name": "Alat Ukur Sentripetal", "category": "Gaya, Gerak, dan Mekanika", "goodCount": 4, "brokenCount": 0, "totalQty": 4, "unit": "Unit", "location": "Lemari B2 - Rak 1", "status": "Tersedia", "notes": "Alat berat/besar ditempatkan di rak bawah; komponen kecil dalam kotak.", "photo": ""}, {"no": 16, "code": "MEK-002", "name": "Dinamometer (Neraca Pegas)", "category": "Gaya, Gerak, dan Mekanika", "goodCount": 14, "brokenCount": 1, "totalQty": 15, "unit": "Unit", "location": "Lemari B2 - Rak 1", "status": "Tersedia", "notes": "Alat berat/besar ditempatkan di rak bawah; komponen kecil dalam kotak.", "photo": ""}, {"no": 17, "code": "MEK-003", "name": "Momen Inersia", "category": "Gaya, Gerak, dan Mekanika", "goodCount": 3, "brokenCount": 0, "totalQty": 3, "unit": "Unit", "location": "Lemari B2 - Rak 2", "status": "Tersedia", "notes": "Alat berat/besar ditempatkan di rak bawah; komponen kecil dalam kotak.", "photo": ""}, {"no": 18, "code": "MEK-004", "name": "Kit Mekanika", "category": "Gaya, Gerak, dan Mekanika", "goodCount": 6, "brokenCount": 0, "totalQty": 6, "unit": "Unit", "location": "Lemari B2 - Rak 2", "status": "Tersedia", "notes": "Alat berat/besar ditempatkan di rak bawah; komponen kecil dalam kotak.", "photo": ""}, {"no": 19, "code": "MEK-005", "name": "Kit Bidang Miring", "category": "Gaya, Gerak, dan Mekanika", "goodCount": 5, "brokenCount": 0, "totalQty": 5, "unit": "Unit", "location": "Lemari B2 - Rak 2", "status": "Tersedia", "notes": "Alat berat/besar ditempatkan di rak bawah; komponen kecil dalam kotak.", "photo": ""}, {"no": 20, "code": "MEK-006", "name": "Spacerail", "category": "Gaya, Gerak, dan Mekanika", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari B2 - Rak 3", "status": "Tersedia", "notes": "Alat berat/besar ditempatkan di rak bawah; komponen kecil dalam kotak.", "photo": ""}, {"no": 21, "code": "FLU-001", "name": "Gelas Kimia 250 ml", "category": "Volume dan Fluida", "goodCount": 15, "brokenCount": 1, "totalQty": 16, "unit": "Unit", "location": "Lemari C1 - Rak 1", "status": "Tersedia", "notes": "Gelas kimia dikelompokkan menurut kapasitas dan diberi sekat/pelindung.", "photo": ""}, {"no": 22, "code": "FLU-002", "name": "Gelas Kimia 100 ml", "category": "Volume dan Fluida", "goodCount": 18, "brokenCount": 0, "totalQty": 18, "unit": "Unit", "location": "Lemari C1 - Rak 1", "status": "Tersedia", "notes": "Gelas kimia dikelompokkan menurut kapasitas dan diberi sekat/pelindung.", "photo": ""}, {"no": 23, "code": "FLU-003", "name": "Gelas Kimia 10 ml", "category": "Volume dan Fluida", "goodCount": 12, "brokenCount": 0, "totalQty": 12, "unit": "Unit", "location": "Lemari C1 - Rak 1", "status": "Tersedia", "notes": "Gelas kimia dikelompokkan menurut kapasitas dan diberi sekat/pelindung.", "photo": ""}, {"no": 24, "code": "FLU-004", "name": "Gelas Kimia 25 ml", "category": "Volume dan Fluida", "goodCount": 12, "brokenCount": 0, "totalQty": 12, "unit": "Unit", "location": "Lemari C1 - Rak 1", "status": "Tersedia", "notes": "Gelas kimia dikelompokkan menurut kapasitas dan diberi sekat/pelindung.", "photo": ""}, {"no": 25, "code": "FLU-005", "name": "Gelas Kimia 50 ml", "category": "Volume dan Fluida", "goodCount": 14, "brokenCount": 1, "totalQty": 15, "unit": "Unit", "location": "Lemari C1 - Rak 1", "status": "Tersedia", "notes": "Gelas kimia dikelompokkan menurut kapasitas dan diberi sekat/pelindung.", "photo": ""}, {"no": 26, "code": "FLU-006", "name": "Tabung Viskositas", "category": "Volume dan Fluida", "goodCount": 4, "brokenCount": 0, "totalQty": 4, "unit": "Unit", "location": "Lemari C1 - Rak 2", "status": "Tersedia", "notes": "Gelas kimia dikelompokkan menurut kapasitas dan diberi sekat/pelindung.", "photo": ""}, {"no": 27, "code": "FLU-007", "name": "Corong Kaca", "category": "Volume dan Fluida", "goodCount": 10, "brokenCount": 0, "totalQty": 10, "unit": "Unit", "location": "Lemari C1 - Rak 2", "status": "Tersedia", "notes": "Gelas kimia dikelompokkan menurut kapasitas dan diberi sekat/pelindung.", "photo": ""}, {"no": 28, "code": "FLU-008", "name": "Gas Ideal", "category": "Volume dan Fluida", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari C1 - Rak 3", "status": "Tersedia", "notes": "Gelas kimia dikelompokkan menurut kapasitas dan diberi sekat/pelindung.", "photo": ""}, {"no": 29, "code": "LIS-001", "name": "Multimeter Digital", "category": "Listrik dan Elektromagnetisme", "goodCount": 10, "brokenCount": 1, "totalQty": 11, "unit": "Unit", "location": "Lemari C2 - Rak 1", "status": "Tersedia", "notes": "Perangkat listrik disimpan kering; kabel dan aksesori ditata dalam wadah.", "photo": ""}, {"no": 30, "code": "LIS-002", "name": "Multimeter Analog", "category": "Listrik dan Elektromagnetisme", "goodCount": 8, "brokenCount": 2, "totalQty": 10, "unit": "Unit", "location": "Lemari C2 - Rak 1", "status": "Tersedia", "notes": "Perangkat listrik disimpan kering; kabel dan aksesori ditata dalam wadah.", "photo": ""}, {"no": 31, "code": "LIS-003", "name": "Galvanometer", "category": "Listrik dan Elektromagnetisme", "goodCount": 6, "brokenCount": 0, "totalQty": 6, "unit": "Unit", "location": "Lemari C2 - Rak 1", "status": "Tersedia", "notes": "Perangkat listrik disimpan kering; kabel dan aksesori ditata dalam wadah.", "photo": ""}, {"no": 32, "code": "LIS-004", "name": "Elektroskop", "category": "Listrik dan Elektromagnetisme", "goodCount": 4, "brokenCount": 0, "totalQty": 4, "unit": "Unit", "location": "Lemari C2 - Rak 2", "status": "Tersedia", "notes": "Perangkat listrik disimpan kering; kabel dan aksesori ditata dalam wadah.", "photo": ""}, {"no": 33, "code": "LIS-005", "name": "Milikan Oil Drop", "category": "Listrik dan Elektromagnetisme", "goodCount": 1, "brokenCount": 0, "totalQty": 1, "unit": "Unit", "location": "Lemari C2 - Rak 2", "status": "Tersedia", "notes": "Perangkat listrik disimpan kering; kabel dan aksesori ditata dalam wadah.", "photo": ""}, {"no": 34, "code": "LIS-006", "name": "Muschenbroek", "category": "Listrik dan Elektromagnetisme", "goodCount": 3, "brokenCount": 0, "totalQty": 3, "unit": "Unit", "location": "Lemari C2 - Rak 2", "status": "Tersedia", "notes": "Perangkat listrik disimpan kering; kabel dan aksesori ditata dalam wadah.", "photo": ""}, {"no": 35, "code": "LIS-007", "name": "Kit Listrik dan Magnet", "category": "Listrik dan Elektromagnetisme", "goodCount": 6, "brokenCount": 0, "totalQty": 6, "unit": "Unit", "location": "Lemari C2 - Rak 3", "status": "Tersedia", "notes": "Perangkat listrik disimpan kering; kabel dan aksesori ditata dalam wadah.", "photo": ""}, {"no": 36, "code": "GEL-001", "name": "Osiloskop Dual Chanel", "category": "Gelombang", "goodCount": 3, "brokenCount": 1, "totalQty": 4, "unit": "Unit", "location": "Lemari D1 - Rak 1", "status": "Dalam Perbaikan", "notes": "Instrumen elektronik diletakkan di tempat kering dan terlindung dari debu.", "photo": ""}, {"no": 37, "code": "GEL-002", "name": "Signal Generator", "category": "Gelombang", "goodCount": 4, "brokenCount": 0, "totalQty": 4, "unit": "Unit", "location": "Lemari D1 - Rak 1", "status": "Tersedia", "notes": "Instrumen elektronik diletakkan di tempat kering dan terlindung dari debu.", "photo": ""}, {"no": 38, "code": "GEL-003", "name": "Signal Generator Dual Chanel", "category": "Gelombang", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari D1 - Rak 1", "status": "Tersedia", "notes": "Instrumen elektronik diletakkan di tempat kering dan terlindung dari debu.", "photo": ""}, {"no": 39, "code": "GEL-004", "name": "Kit Ripple Tank", "category": "Gelombang", "goodCount": 3, "brokenCount": 0, "totalQty": 3, "unit": "Unit", "location": "Lemari D1 - Rak 2", "status": "Tersedia", "notes": "Instrumen elektronik diletakkan di tempat kering dan terlindung dari debu.", "photo": ""}, {"no": 40, "code": "GEL-005", "name": "Tabung Resonansi", "category": "Gelombang", "goodCount": 5, "brokenCount": 0, "totalQty": 5, "unit": "Unit", "location": "Lemari D1 - Rak 2", "status": "Tersedia", "notes": "Instrumen elektronik diletakkan di tempat kering dan terlindung dari debu.", "photo": ""}, {"no": 41, "code": "GEL-006", "name": "Audiogenerator", "category": "Gelombang", "goodCount": 4, "brokenCount": 0, "totalQty": 4, "unit": "Unit", "location": "Lemari D1 - Rak 1", "status": "Tersedia", "notes": "Instrumen elektronik diletakkan di tempat kering dan terlindung dari debu.", "photo": ""}, {"no": 42, "code": "OPT-001", "name": "Luxmeter", "category": "Cahaya dan Optik", "goodCount": 5, "brokenCount": 0, "totalQty": 5, "unit": "Unit", "location": "Lemari D2 - Rak 1", "status": "Tersedia", "notes": "Lensa, teleskop, dan perangkat optik disimpan dalam kotak/pelindung.", "photo": ""}, {"no": 43, "code": "OPT-002", "name": "Eduscope 3000", "category": "Cahaya dan Optik", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari D2 - Rak 2", "status": "Tersedia", "notes": "Lensa, teleskop, dan perangkat optik disimpan dalam kotak/pelindung.", "photo": ""}, {"no": 44, "code": "OPT-003", "name": "Kit Optik", "category": "Cahaya dan Optik", "goodCount": 6, "brokenCount": 0, "totalQty": 6, "unit": "Unit", "location": "Lemari D2 - Rak 2", "status": "Tersedia", "notes": "Lensa, teleskop, dan perangkat optik disimpan dalam kotak/pelindung.", "photo": ""}, {"no": 45, "code": "OPT-004", "name": "Teleskop Starsense Explore LT 80AZ Smartphone App-Enabled Refraktor", "category": "Cahaya dan Optik", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari D2 - Rak 3", "status": "Tersedia", "notes": "Lensa, teleskop, dan perangkat optik disimpan dalam kotak/pelindung.", "photo": ""}, {"no": 46, "code": "OPT-005", "name": "Teleskop Astronomi", "category": "Cahaya dan Optik", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari D2 - Rak 3", "status": "Tersedia", "notes": "Lensa, teleskop, dan perangkat optik disimpan dalam kotak/pelindung.", "photo": ""}, {"no": 47, "code": "OPT-006", "name": "Seestar", "category": "Cahaya dan Optik", "goodCount": 1, "brokenCount": 0, "totalQty": 1, "unit": "Unit", "location": "Lemari D2 - Rak 3", "status": "Dipinjam", "notes": "Lensa, teleskop, dan perangkat optik disimpan dalam kotak/pelindung.", "photo": ""}, {"no": 48, "code": "OPT-007", "name": "Busur", "category": "Cahaya dan Optik", "goodCount": 15, "brokenCount": 0, "totalQty": 15, "unit": "Unit", "location": "Lemari D2 - Rak 1", "status": "Tersedia", "notes": "Lensa, teleskop, dan perangkat optik disimpan dalam kotak/pelindung.", "photo": ""}, {"no": 49, "code": "PEN-001", "name": "Arduino Uno R3 Starter Kit Learning", "category": "Perangkat Pendukung Eksperimen", "goodCount": 8, "brokenCount": 0, "totalQty": 8, "unit": "Unit", "location": "Lemari E1 - Rak 1", "status": "Tersedia", "notes": "Kit elektronik dan kamera disimpan di lemari tertutup; catu daya di rak kokoh.", "photo": ""}, {"no": 50, "code": "PEN-002", "name": "Arduino Sensor Kit", "category": "Perangkat Pendukung Eksperimen", "goodCount": 6, "brokenCount": 0, "totalQty": 6, "unit": "Unit", "location": "Lemari E1 - Rak 1", "status": "Tersedia", "notes": "Kit elektronik dan kamera disimpan di lemari tertutup; catu daya di rak kokoh.", "photo": ""}, {"no": 51, "code": "PEN-003", "name": "Starter Kit Learning Kit Robotdyn Uno R3", "category": "Perangkat Pendukung Eksperimen", "goodCount": 5, "brokenCount": 0, "totalQty": 5, "unit": "Unit", "location": "Lemari E1 - Rak 1", "status": "Tersedia", "notes": "Kit elektronik dan kamera disimpan di lemari tertutup; catu daya di rak kokoh.", "photo": ""}, {"no": 52, "code": "PEN-004", "name": "Catu Daya", "category": "Perangkat Pendukung Eksperimen", "goodCount": 8, "brokenCount": 1, "totalQty": 9, "unit": "Unit", "location": "Lemari E1 - Rak 2", "status": "Tersedia", "notes": "Kit elektronik dan kamera disimpan di lemari tertutup; catu daya di rak kokoh.", "photo": ""}, {"no": 53, "code": "PEN-005", "name": "Power Supply", "category": "Perangkat Pendukung Eksperimen", "goodCount": 6, "brokenCount": 0, "totalQty": 6, "unit": "Unit", "location": "Lemari E1 - Rak 2", "status": "Tersedia", "notes": "Kit elektronik dan kamera disimpan di lemari tertutup; catu daya di rak kokoh.", "photo": ""}, {"no": 54, "code": "PEN-006", "name": "VR Box", "category": "Perangkat Pendukung Eksperimen", "goodCount": 4, "brokenCount": 0, "totalQty": 4, "unit": "Unit", "location": "Lemari E1 - Rak 3", "status": "Tersedia", "notes": "Kit elektronik dan kamera disimpan di lemari tertutup; catu daya di rak kokoh.", "photo": ""}, {"no": 55, "code": "PEN-007", "name": "Kamera Sony A6400", "category": "Perangkat Pendukung Eksperimen", "goodCount": 1, "brokenCount": 0, "totalQty": 1, "unit": "Unit", "location": "Lemari E1 - Rak 3", "status": "Tersedia", "notes": "Kit elektronik dan kamera disimpan di lemari tertutup; catu daya di rak kokoh.", "photo": ""}, {"no": 56, "code": "PEN-008", "name": "Adaptor Adjustable DC", "category": "Perangkat Pendukung Eksperimen", "goodCount": 7, "brokenCount": 0, "totalQty": 7, "unit": "Unit", "location": "Lemari E1 - Rak 2", "status": "Tersedia", "notes": "Kit elektronik dan kamera disimpan di lemari tertutup; catu daya di rak kokoh.", "photo": ""}, {"no": 57, "code": "RAW-001", "name": "Mata Solder Dekko", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 10, "brokenCount": 0, "totalQty": 10, "unit": "Unit", "location": "Lemari E2 - Rak 1", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}, {"no": 58, "code": "RAW-002", "name": "Solder", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 6, "brokenCount": 1, "totalQty": 7, "unit": "Unit", "location": "Lemari E2 - Rak 1", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}, {"no": 59, "code": "RAW-003", "name": "Pengisap Solder", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 5, "brokenCount": 0, "totalQty": 5, "unit": "Unit", "location": "Lemari E2 - Rak 1", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}, {"no": 60, "code": "RAW-004", "name": "Stand Solder", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 6, "brokenCount": 0, "totalQty": 6, "unit": "Unit", "location": "Lemari E2 - Rak 1", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}, {"no": 61, "code": "RAW-005", "name": "Mesin Bor & Dudukan", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari E2 - Rak 2", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}, {"no": 62, "code": "RAW-006", "name": "Cordless Screwdriver IRCS362", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari E2 - Rak 2", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}, {"no": 63, "code": "RAW-007", "name": "Maxb Set 77 Pcs Obeng Presisi", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 3, "brokenCount": 0, "totalQty": 3, "unit": "Unit", "location": "Lemari E2 - Rak 2", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}, {"no": 64, "code": "RAW-008", "name": "Krisbow Set 28 Pcs Perkakas Mekanik Dengan Kotak", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari E2 - Rak 2", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}, {"no": 65, "code": "RAW-009", "name": "Aneng SL103-25 Solder Digital Kit Set Adjustable Temperature Original", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 3, "brokenCount": 0, "totalQty": 3, "unit": "Unit", "location": "Lemari E2 - Rak 1", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}, {"no": 66, "code": "RAW-010", "name": "Authentic Mesin Laser Cutting Akrilik", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 1, "brokenCount": 0, "totalQty": 1, "unit": "Unit", "location": "Area Khusus - Meja/Area Mesin", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}, {"no": 67, "code": "RAW-011", "name": "Gergaji Multifungsi", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 2, "brokenCount": 0, "totalQty": 2, "unit": "Unit", "location": "Lemari E2 - Rak 3", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}, {"no": 68, "code": "RAW-012", "name": "Alat Kikir", "category": "Perakitan dan Perawatan Perangkat Laboratorium", "goodCount": 4, "brokenCount": 0, "totalQty": 4, "unit": "Unit", "location": "Lemari E2 - Rak 3", "status": "Tersedia", "notes": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan.", "photo": ""}];
+        const PANDUAN_RAK_DATA = [{"lokasi": "Lemari A1 - Rak 1", "kategori": "Pengukuran Panjang dan Dimensi", "catatan": "Simpan alat ukur presisi dalam kotak; hindari benturan dan kelembapan."}, {"lokasi": "Lemari A2 - Rak 1–3", "kategori": "Pengukuran Massa; Pengukuran Waktu", "catatan": "Neraca pada permukaan stabil; stopwatch disimpan terpisah dan rapi."}, {"lokasi": "Lemari B1 - Rak 1–2", "kategori": "Pengukuran Suhu dan Kalor", "catatan": "Termometer dan perangkat termal disimpan aman sesuai bahan dan petunjuk alat."}, {"lokasi": "Lemari B2 - Rak 1–3", "kategori": "Gaya, Gerak, dan Mekanika", "catatan": "Alat berat/besar ditempatkan di rak bawah; komponen kecil dalam kotak."}, {"lokasi": "Lemari C1 - Rak 1–3", "kategori": "Volume dan Fluida", "catatan": "Gelas kimia dikelompokkan menurut kapasitas dan diberi sekat/pelindung."}, {"lokasi": "Lemari C2 - Rak 1–3", "kategori": "Listrik dan Elektromagnetisme", "catatan": "Perangkat listrik disimpan kering; kabel dan aksesori ditata dalam wadah."}, {"lokasi": "Lemari D1 - Rak 1–2", "kategori": "Gelombang", "catatan": "Instrumen elektronik diletakkan di tempat kering dan terlindung dari debu."}, {"lokasi": "Lemari D2 - Rak 1–3", "kategori": "Cahaya dan Optik", "catatan": "Lensa, teleskop, dan perangkat optik disimpan dalam kotak/pelindung."}, {"lokasi": "Lemari E1 - Rak 1–3", "kategori": "Perangkat Pendukung Eksperimen", "catatan": "Kit elektronik dan kamera disimpan di lemari tertutup; catu daya di rak kokoh."}, {"lokasi": "Lemari E2 - Rak 1–3; Area Khusus", "kategori": "Perakitan dan Perawatan Perangkat Laboratorium", "catatan": "Perkakas dipisahkan dari alat ukur; mesin laser cutting ditempatkan di area khusus sesuai kebutuhan ruang dan keselamatan."}];
+
+        // Menggunakan key v3 agar langsung memuat dataset yang sudah terisi lengkap
+        const STORAGE_KEY = 'simlab_official_excel_db_v3';
+        const LOANS_KEY = 'simlab_official_loans_v3';
+
+        let inventoryData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(JSON.stringify(INITIAL_INVENTORY));
+        let loanData = JSON.parse(localStorage.getItem(LOANS_KEY)) || [
+            {
+                id: 1001,
+                borrowerName: 'Rizky Pratama',
+                borrowerId: '222153014',
+                toolCode: 'KAL-004',
+                toolName: 'Thermoelektrik Effect',
+                qty: 1,
+                borrowDate: '2026-11-17',
+                returnDate: '2026-11-21',
+                status: 'Disetujui (Dipinjam)'
+            },
+            {
+                id: 1002,
+                borrowerName: 'Nadia Safitri',
+                borrowerId: '222153029',
+                toolCode: 'OPT-006',
+                toolName: 'Seestar',
+                qty: 1,
+                borrowDate: '2026-11-18',
+                returnDate: '2026-11-22',
+                status: 'Disetujui (Dipinjam)'
+            }
+        ];
+
+        let currentPage = 1;
+        const ITEMS_PER_PAGE = 15;
+        let editingRowCode = null; // Menyimpan kode baris yang sedang diedit langsung di tabel
+        let pendingPhotoCode = null; // Menyimpan kode baris yang sedang upload foto
+
+        function saveToStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(inventoryData));
+            localStorage.setItem(LOANS_KEY, JSON.stringify(loanData));
+        }
+
+        function resetDatabase() {
+            if (confirm('Kembalikan seluruh data inventaris ke kondisi awal bawaan (68 alat lengkap dengan stok & foto)?')) {
+                inventoryData = JSON.parse(JSON.stringify(INITIAL_INVENTORY));
+                editingRowCode = null;
+                saveToStorage();
+                populateFilterDropdowns();
+                refreshSystem();
+                showToast('Data berhasil dikembalikan ke pengaturan awal.');
+            }
+        }
+
+        // ================= FITUR IMPOR & EKSPOR EXCEL (.xlsx / .csv) =================
+        function handleExcelImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames.includes('Data Inventaris') ? 'Data Inventaris' : workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+                    let headerIdx = rows.findIndex(r =>
+                        r.some(cell => String(cell).toLowerCase().includes('kode inventaris') || String(cell).toLowerCase().includes('nama alat'))
+                    );
+                    if (headerIdx === -1) headerIdx = 0;
+
+                    const headers = rows[headerIdx].map(h => String(h).trim().toLowerCase());
+                    const idxNo = headers.findIndex(h => h === 'no' || h === 'no.');
+                    const idxCode = headers.findIndex(h => h.includes('kode'));
+                    const idxName = headers.findIndex(h => h.includes('nama'));
+                    const idxCat = headers.findIndex(h => h.includes('kategori'));
+                    const idxLoc = headers.findIndex(h => h.includes('lokasi'));
+                    const idxTotal = headers.findIndex(h => h.includes('total') || h.includes('qty'));
+                    const idxGood = headers.findIndex(h => h.includes('baik'));
+                    const idxBroken = headers.findIndex(h => h.includes('rusak'));
+                    const idxStatus = headers.findIndex(h => h.includes('status'));
+                    const idxNotes = headers.findIndex(h => h.includes('keterangan') || h.includes('catatan'));
+
+                    const imported = [];
+                    for (let i = headerIdx + 1; i < rows.length; i++) {
+                        const r = rows[i];
+                        const codeVal = idxCode >= 0 ? String(r[idxCode] || '').trim() : '';
+                        const nameVal = idxName >= 0 ? String(r[idxName] || '').trim() : '';
+                        if (!codeVal && !nameVal) continue;
+
+                        const existing = inventoryData.find(x => x.code === codeVal);
+                        const goodVal = idxGood >= 0 && r[idxGood] !== '' ? parseInt(r[idxGood]) || 0 : (existing ? existing.goodCount : 1);
+                        const brokenVal = idxBroken >= 0 && r[idxBroken] !== '' ? parseInt(r[idxBroken]) || 0 : (existing ? existing.brokenCount : 0);
+                        let totalVal = idxTotal >= 0 && r[idxTotal] !== '' ? parseInt(r[idxTotal]) || 0 : (goodVal + brokenVal);
+
+                        const finalGood = (goodVal === 0 && brokenVal === 0 && totalVal > 0) ? totalVal : goodVal;
+                        const finalBroken = brokenVal;
+                        const finalTotal = finalGood + finalBroken;
+
+                        let statusVal = idxStatus >= 0 ? String(r[idxStatus] || '').trim() : '';
+                        if (!statusVal) statusVal = existing ? existing.status : (finalTotal > 0 ? 'Tersedia' : 'Dalam Perbaikan');
+
+                        imported.push({
+                            no: idxNo >= 0 && r[idxNo] ? parseInt(r[idxNo]) || (imported.length + 1) : (imported.length + 1),
+                            code: codeVal || `ALAT-${String(imported.length + 1).padStart(3, '0')}`,
+                            name: nameVal || 'Tanpa Nama',
+                            category: idxCat >= 0 && r[idxCat] ? String(r[idxCat]).trim() : 'Umum',
+                            location: idxLoc >= 0 && r[idxLoc] ? String(r[idxLoc]).trim() : 'Belum Ditentukan',
+                            goodCount: finalGood,
+                            brokenCount: finalBroken,
+                            totalQty: finalTotal,
+                            unit: 'Unit',
+                            status: statusVal,
+                            notes: idxNotes >= 0 && r[idxNotes] ? String(r[idxNotes]).trim() : (existing ? existing.notes : 'Diimpor dari file Excel'),
+                            photo: existing ? existing.photo : ''
+                        });
+                    }
+
+                    if (imported.length === 0) {
+                        alert('Tidak ditemukan baris data yang valid di dalam file Excel tersebut.');
+                        return;
+                    }
+
+                    inventoryData = imported;
+                    editingRowCode = null;
+                    currentPage = 1;
+                    populateFilterDropdowns();
+                    refreshSystem();
+                    showToast(`Berhasil mengimpor ${imported.length} data alat!`);
+                } catch (err) {
+                    console.error(err);
+                    alert('Gagal membaca file Excel. Pastikan format file (.xlsx / .xls / .csv) sesuai.');
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function exportToExcel() {
+            const exportRows = [
+                ['DAFTAR INVENTARIS ALAT LABORATORIUM PENDIDIKAN FISIKA'],
+                ['No.', 'Kode Inventaris', 'Nama Alat Praktikum', 'Kategori', 'Lokasi Rak', 'Total Qty', 'Baik', 'Rusak', 'Status', 'Catatan']
+            ];
+            inventoryData.forEach(item => {
+                exportRows.push([
+                    item.no,
+                    item.code,
+                    item.name,
+                    item.category,
+                    item.location,
+                    item.goodCount + item.brokenCount,
+                    item.goodCount,
+                    item.brokenCount,
+                    item.status,
+                    item.notes || ''
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(exportRows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Data Inventaris');
+            XLSX.writeFile(wb, 'Inventaris_Lab_Fisika_Lengkap.xlsx');
+        }
+
+        // ================= PERPINDAHAN MENU SIDEBAR TANPA PINDAH HALAMAN =================
+        const navItems = document.querySelectorAll('.nav-item');
+        const viewPanels = document.querySelectorAll('.view-panel');
+
+        function switchMenu(targetId) {
+            navItems.forEach(item => {
+                const isMatch = item.getAttribute('data-target') === targetId;
+                item.classList.toggle('active', isMatch);
+                if (isMatch) {
+                    document.getElementById('headerTitle').textContent = item.getAttribute('data-title');
+                    document.getElementById('headerDesc').textContent = item.getAttribute('data-desc');
+                }
+            });
+            viewPanels.forEach(panel => panel.classList.toggle('active', panel.id === targetId));
+        }
+
+        navItems.forEach(btn => btn.addEventListener('click', () => switchMenu(btn.getAttribute('data-target'))));
+
+        // ================= POPULATE DROPDOWN FILTER =================
+        function populateFilterDropdowns() {
+            const categories = [...new Set(inventoryData.map(i => i.category))].sort();
+            const locations = [...new Set(inventoryData.map(i => i.location))].sort();
+
+            const catSelect = document.getElementById('filterCategory');
+            catSelect.innerHTML = '<option value="">Semua Kategori</option>' +
+                categories.map(c => `<option value="${c}">${c}</option>`).join('');
+
+            const locSelect = document.getElementById('filterLocation');
+            locSelect.innerHTML = '<option value="">Semua Lokasi</option>' +
+                locations.map(l => `<option value="${l}">${l}</option>`).join('');
+        }
+
+        // ================= DASHBOARD METRIK & DIAGRAM OTOMATIS =================
+        function getCabinetGroup(locationStr) {
+            if (!locationStr) return 'Lainnya';
+            if (locationStr.includes(' - ')) {
+                return locationStr.split(' - ')[0].trim();
+            }
+            return locationStr.replace(/[0-9]+$/, '').trim();
+        }
+
+        function updateDashboardMetricsAndCharts() {
+            const totalJenisAlat = inventoryData.length;
+            let totalAlatBaik = 0;
+            let totalAlatRusak = 0;
+            let totalKeseluruhan = 0;
+
+            const kategoriUnitMap = {};
+            const kategoriJenisMap = {};
+            const lemariUnitMap = {};
+            const lemariJenisMap = {};
+            const uniqueRacks = new Set();
+
+            inventoryData.forEach(item => {
+                const baik = Number(item.goodCount) || 0;
+                const rusak = Number(item.brokenCount) || 0;
+                const total = baik + rusak;
+
+                totalAlatBaik += baik;
+                totalAlatRusak += rusak;
+                totalKeseluruhan += total;
+
+                kategoriUnitMap[item.category] = (kategoriUnitMap[item.category] || 0) + total;
+                kategoriJenisMap[item.category] = (kategoriJenisMap[item.category] || 0) + 1;
+
+                const lemariInduk = getCabinetGroup(item.location);
+                lemariUnitMap[lemariInduk] = (lemariUnitMap[lemariInduk] || 0) + total;
+                lemariJenisMap[lemariInduk] = (lemariJenisMap[lemariInduk] || 0) + 1;
+                uniqueRacks.add(item.location);
+            });
+
+            document.getElementById('statJenisAlat').textContent = totalJenisAlat;
+            document.getElementById('statTotalUnit').textContent = totalKeseluruhan;
+            document.getElementById('statAlatBaik').textContent = totalAlatBaik;
+            document.getElementById('statAlatRusak').textContent = totalAlatRusak;
+            document.getElementById('statJumlahKategori').textContent = Object.keys(kategoriJenisMap).length;
+            document.getElementById('statLemariRak').textContent = `${Object.keys(lemariJenisMap).length} Lokasi / ${uniqueRacks.size} Rak`;
+
+            const maxCat = Math.max(...Object.values(kategoriUnitMap), 1);
+            document.getElementById('chartCategoryBars').innerHTML = Object.entries(kategoriJenisMap).map(([cat, jenisCount]) => {
+                const unitCount = kategoriUnitMap[cat] || 0;
+                const pct = Math.round((unitCount / maxCat) * 100);
+                return `
+                    <div class="bar-row">
+                        <div class="bar-meta"><span>${cat}</span><span>${unitCount} unit (${jenisCount} jenis)</span></div>
+                        <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background-color:var(--deep-navy);"></div></div>
+                    </div>
+                `;
+            }).join('');
+
+            const goodPct = totalKeseluruhan > 0 ? ((totalAlatBaik / totalKeseluruhan) * 100).toFixed(1) : '0.0';
+            const badPct = totalKeseluruhan > 0 ? (100 - parseFloat(goodPct)).toFixed(1) : '0.0';
+            document.getElementById('chartConditionVisual').innerHTML = `
+                <div class="condition-split">
+                    <div class="cond-good-bar" style="width:${goodPct}%" title="Baik: ${goodPct}%"></div>
+                    <div class="cond-bad-bar" style="width:${badPct}%" title="Rusak: ${badPct}%"></div>
+                </div>
+                <div class="legend-row">
+                    <div><span class="dot" style="background:var(--deep-navy);"></span>Kondisi Baik: ${totalAlatBaik} unit (${goodPct}%)</div>
+                    <div><span class="dot" style="background:var(--danger-text);"></span>Kondisi Rusak: ${totalAlatRusak} unit (${badPct}%)</div>
+                </div>
+            `;
+
+            const maxLoc = Math.max(...Object.values(lemariUnitMap), 1);
+            document.getElementById('chartLocationBars').innerHTML = Object.entries(lemariJenisMap).map(([loc, jenisCount]) => {
+                const unitCount = lemariUnitMap[loc] || 0;
+                const pct = Math.round((unitCount / maxLoc) * 100);
+                return `
+                    <div class="bar-row">
+                        <div class="bar-meta"><span>${loc}</span><span>${unitCount} unit (${jenisCount} jenis alat)</span></div>
+                        <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background-color:var(--sky-blue);"></div></div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ================= HALAMAN DATA INVENTARIS & EDIT LANGSUNG (INLINE) KHUSUS EDITOR =================
+        function onFilterChange() {
+            currentPage = 1;
+            renderInventarisTable();
+        }
+
+        function resetFilters() {
+            document.getElementById('searchNameInput').value = '';
+            document.getElementById('searchCodeInput').value = '';
+            document.getElementById('filterCategory').value = '';
+            document.getElementById('filterLocation').value = '';
+            document.getElementById('filterCondition').value = '';
+            document.getElementById('sortBySelect').value = 'no-asc';
+            currentPage = 1;
+            renderInventarisTable();
+        }
+
+        function getFilteredAndSortedInventory() {
+            const qName = document.getElementById('searchNameInput').value.trim().toLowerCase();
+            const qCode = document.getElementById('searchCodeInput').value.trim().toLowerCase();
+            const fCat = document.getElementById('filterCategory').value;
+            const fLoc = document.getElementById('filterLocation').value;
+            const fCond = document.getElementById('filterCondition').value;
+            const sortBy = document.getElementById('sortBySelect').value;
+
+            let list = inventoryData.filter(item => {
+                if (qName && !item.name.toLowerCase().includes(qName)) return false;
+                if (qCode && !item.code.toLowerCase().includes(qCode)) return false;
+                if (fCat && item.category !== fCat) return false;
+                if (fLoc && item.location !== fLoc) return false;
+                if (fCond === 'baik' && item.goodCount <= 0) return false;
+                if (fCond === 'rusak' && item.brokenCount <= 0) return false;
+                if (fCond === 'tersedia' && item.status !== 'Tersedia') return false;
+                if (fCond === 'dipinjam' && item.status !== 'Dipinjam') return false;
+                if (fCond === 'perbaikan' && item.status !== 'Dalam Perbaikan') return false;
+                return true;
+            });
+
+            list.sort((a, b) => {
+                if (sortBy === 'no-asc') return a.no - b.no;
+                if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
+                if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
+                if (sortBy === 'code-asc') return a.code.localeCompare(b.code);
+                if (sortBy === 'code-desc') return b.code.localeCompare(a.code);
+                if (sortBy === 'category-asc') return a.category.localeCompare(b.category);
+                if (sortBy === 'location-asc') return a.location.localeCompare(b.location);
+                return 0;
+            });
+
+            return list;
+        }
+
+        function startInlineEdit(code) {
+            if (activeUser.role !== 'Editor') return;
+            editingRowCode = code;
+            renderInventarisTable();
+        }
+
+        function cancelInlineEdit() {
+            editingRowCode = null;
+            renderInventarisTable();
+        }
+
+        function updateInlineTotalPreview(code) {
+            const goodEl = document.getElementById(`inline-good-${code}`);
+            const brokenEl = document.getElementById(`inline-broken-${code}`);
+            const totalEl = document.getElementById(`inline-total-${code}`);
+            if (goodEl && brokenEl && totalEl) {
+                const g = parseInt(goodEl.value) || 0;
+                const b = parseInt(brokenEl.value) || 0;
+                totalEl.textContent = `${g + b} Unit`;
+            }
+        }
+
+        function triggerInlinePhotoUpload(code) {
+            if (activeUser.role !== 'Editor') return;
+            pendingPhotoCode = code;
+            document.getElementById('inlinePhotoInput').click();
+        }
+
+        function handleInlinePhotoUpload(event) {
+            const file = event.target.files[0];
+            if (!file || !pendingPhotoCode) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Kompres ringan gambar menggunakan canvas agar aman disimpan di localStorage
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const maxDim = 360;
+                    let w = img.width, h = img.height;
+                    if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+                    else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+                    const item = inventoryData.find(i => i.code === pendingPhotoCode);
+                    if (item) {
+                        item.photo = compressedDataUrl;
+                        saveToStorage();
+                        renderInventarisTable();
+                        showToast(`Foto alat ${item.code} berhasil diperbarui!`);
+                    }
+                    pendingPhotoCode = null;
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        }
+
+        function saveInlineEdit(oldCode) {
+            if (activeUser.role !== 'Editor') return;
+            const item = inventoryData.find(i => i.code === oldCode);
+            if (!item) return;
+
+            const newCode = document.getElementById(`inline-code-${oldCode}`).value.trim().toUpperCase();
+            if (!newCode) return alert('Kode inventaris tidak boleh kosong!');
+            if (newCode !== oldCode && inventoryData.some(i => i.code === newCode)) {
+                return alert('Kode inventaris sudah dipakai alat lain!');
+            }
+
+            const newName = document.getElementById(`inline-name-${oldCode}`).value.trim();
+            const newCat = document.getElementById(`inline-cat-${oldCode}`).value.trim();
+            const newLoc = document.getElementById(`inline-loc-${oldCode}`).value.trim();
+            const newGood = Math.max(0, parseInt(document.getElementById(`inline-good-${oldCode}`).value) || 0);
+            const newBroken = Math.max(0, parseInt(document.getElementById(`inline-broken-${oldCode}`).value) || 0);
+            const newStatus = document.getElementById(`inline-status-${oldCode}`).value;
+
+            if (!newName || !newCat || !newLoc) {
+                return alert('Nama alat, kategori, dan lokasi rak wajib diisi!');
+            }
+
+            item.code = newCode;
+            item.name = newName;
+            item.category = newCat;
+            item.location = newLoc;
+            item.goodCount = newGood;
+            item.brokenCount = newBroken;
+            item.totalQty = newGood + newBroken;
+            item.status = newStatus;
+
+            editingRowCode = null;
+            populateFilterDropdowns();
+            refreshSystem();
+            showToast(`Data ${item.code} (${item.name}) berhasil disimpan!`);
+        }
+
+        function deleteToolRow(code) {
+            if (activeUser.role !== 'Editor') return;
+            const item = inventoryData.find(i => i.code === code);
+            if (!item) return;
+            if (confirm(`Hapus alat "${item.name}" (${item.code}) dari daftar inventaris?`)) {
+                inventoryData = inventoryData.filter(i => i.code !== code);
+                inventoryData.forEach((el, idx) => el.no = idx + 1);
+                editingRowCode = null;
+                populateFilterDropdowns();
+                refreshSystem();
+                showToast(`Alat ${code} telah dihapus.`);
+            }
+        }
+
+        function renderInventarisTable() {
+            const filtered = getFilteredAndSortedInventory();
+            const totalItems = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+            const pageItems = filtered.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+            const isEditor = activeUser.role === 'Editor';
+
+            document.getElementById('inventoryCountInfo').textContent = `Menampilkan ${pageItems.length} dari ${totalItems} alat (Total Database: ${inventoryData.length} alat)`;
+
+            const tbody = document.getElementById('inventarisTableBody');
+            if (pageItems.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:24px; color:var(--text-muted);">Tidak ada data alat yang sesuai dengan filter pencarian.</td></tr>`;
+            } else {
+                tbody.innerHTML = pageItems.map(item => {
+                    const totalQty = item.goodCount + item.brokenCount;
+                    const photoSrc = getDefaultToolPhoto(item);
+                    const isRowEditing = isEditor && editingRowCode === item.code;
+
+                    if (isRowEditing) {
+                        return `
+                            <tr class="editing-row">
+                                <td><strong>${item.no}</strong></td>
+                                <td>
+                                    <div class="thumb-box" onclick="triggerInlinePhotoUpload('${item.code}')" title="Klik untuk ganti foto alat">
+                                        <img src="${photoSrc}" alt="${item.name}">
+                                        <div class="thumb-edit-overlay">Ganti Foto</div>
+                                    </div>
+                                </td>
+                                <td><input type="text" id="inline-code-${item.code}" class="inline-input" style="width:92px; font-family:monospace;" value="${item.code}"></td>
+                                <td><input type="text" id="inline-name-${item.code}" class="inline-input" style="min-width:170px;" value="${item.name}"></td>
+                                <td><input type="text" id="inline-cat-${item.code}" class="inline-input" style="min-width:160px;" value="${item.category}"></td>
+                                <td><input type="text" id="inline-loc-${item.code}" class="inline-input" style="min-width:140px;" value="${item.location}"></td>
+                                <td><strong id="inline-total-${item.code}">${totalQty} Unit</strong></td>
+                                <td>
+                                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                        <label style="font-size:0.72rem; color:var(--success-text); font-weight:700;">Baik:
+                                            <input type="number" id="inline-good-${item.code}" class="inline-num" min="0" value="${item.goodCount}" oninput="updateInlineTotalPreview('${item.code}')">
+                                        </label>
+                                        <label style="font-size:0.72rem; color:var(--danger-text); font-weight:700;">Rusak:
+                                            <input type="number" id="inline-broken-${item.code}" class="inline-num" min="0" value="${item.brokenCount}" oninput="updateInlineTotalPreview('${item.code}')">
+                                        </label>
+                                    </div>
+                                </td>
+                                <td>
+                                    <select id="inline-status-${item.code}" class="inline-select">
+                                        <option value="Tersedia" ${item.status === 'Tersedia' ? 'selected' : ''}>Tersedia</option>
+                                        <option value="Dipinjam" ${item.status === 'Dipinjam' ? 'selected' : ''}>Dipinjam</option>
+                                        <option value="Dalam Perbaikan" ${item.status === 'Dalam Perbaikan' ? 'selected' : ''}>Dalam Perbaikan</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                                        <button class="btn btn-success btn-sm" onclick="saveInlineEdit('${item.code}')">Simpan</button>
+                                        <button class="btn btn-outline btn-sm" onclick="cancelInlineEdit()">Batal</button>
+                                        <button class="btn btn-danger btn-sm" onclick="deleteToolRow('${item.code}')" title="Hapus baris">Hapus</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }
+
+                    let statusBadge = 'badge-neutral';
+                    if (item.status === 'Tersedia') statusBadge = 'badge-good';
+                    if (item.status === 'Dipinjam') statusBadge = 'badge-warn';
+                    if (item.status === 'Dalam Perbaikan') statusBadge = 'badge-bad';
+
+                    const condHTML = `<span class="badge badge-good">${item.goodCount} Baik</span>` +
+                        (item.brokenCount > 0 ? `<span class="badge badge-bad" style="margin-left:4px;">${item.brokenCount} Rusak</span>` : '');
+
+                    return `
+                        <tr ondblclick="${isEditor ? `startInlineEdit('${item.code}')` : ''}" title="${isEditor ? 'Klik ganda atau tekan Edit Langsung untuk mengubah data baris ini' : ''}">
+                            <td><strong>${item.no}</strong></td>
+                            <td>
+                                <div class="thumb-box">
+                                    <img src="${photoSrc}" alt="${item.name}" loading="lazy">
+                                </div>
+                            </td>
+                            <td><span style="font-family:monospace; font-weight:700; color:var(--deep-navy);">${item.code}</span></td>
+                            <td><strong>${item.name}</strong></td>
+                            <td><span class="badge badge-info">${item.category}</span></td>
+                            <td>${item.location}</td>
+                            <td><strong>${totalQty}</strong> ${item.unit}</td>
+                            <td>${condHTML}</td>
+                            <td><span class="badge ${statusBadge}">${item.status}</span></td>
+                            <td>
+                                <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                                    <button class="btn btn-outline btn-sm" onclick="openDetailModal('${item.code}')">Detail</button>
+                                    ${item.goodCount > 0 ? `<button class="btn btn-sky btn-sm" onclick="openBorrowModal('${item.code}')">Pinjam</button>` : ''}
+                                    ${isEditor ? `<button class="btn btn-primary btn-sm" onclick="startInlineEdit('${item.code}')">Edit Langsung</button>` : ''}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            document.getElementById('paginationInfo').textContent = `Halaman ${currentPage} dari ${totalPages}`;
+            let pageBtns = `<button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>« Prev</button>`;
+            for (let p = 1; p <= totalPages; p++) {
+                pageBtns += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`;
+            }
+            pageBtns += `<button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next »</button>`;
+            document.getElementById('paginationControls').innerHTML = pageBtns;
+        }
+
+        function goToPage(p) {
+            currentPage = p;
+            renderInventarisTable();
+        }
+
+        // ================= MODAL DETAIL ALAT =================
+        function openDetailModal(code) {
+            const item = inventoryData.find(i => i.code === code);
+            if (!item) return;
+
+            const photoSrc = getDefaultToolPhoto(item);
+            const isEditor = activeUser.role === 'Editor';
+
+            document.getElementById('detailModalBody').innerHTML = `
+                <div class="detail-photo-box">
+                    <img src="${photoSrc}" alt="${item.name}">
+                </div>
+                ${isEditor ? `<div style="text-align:right; margin-bottom:12px;"><button class="btn btn-outline btn-sm" onclick="closeDetailModal(); triggerInlinePhotoUpload('${item.code}')">📷 Unggah Foto Asli Alat</button></div>` : ''}
+                <div class="detail-row"><span>Nomor Inventaris</span><span>#${item.no}</span></div>
+                <div class="detail-row"><span>Kode Inventaris</span><span>${item.code}</span></div>
+                <div class="detail-row"><span>Nama Alat Praktikum</span><span>${item.name}</span></div>
+                <div class="detail-row"><span>Kategori</span><span>${item.category}</span></div>
+                <div class="detail-row"><span>Lokasi Penyimpanan</span><span>${item.location}</span></div>
+                <div class="detail-row"><span>Total Kuantitas</span><span>${item.goodCount + item.brokenCount} ${item.unit}</span></div>
+                <div class="detail-row"><span>Kondisi Baik</span><span style="color:var(--success-text);">${item.goodCount} ${item.unit}</span></div>
+                <div class="detail-row"><span>Kondisi Rusak</span><span style="color:var(--danger-text);">${item.brokenCount} ${item.unit}</span></div>
+                <div class="detail-row"><span>Status Alat</span><span>${item.status}</span></div>
+                <div class="detail-row" style="border-bottom:none;"><span>Panduan Penataan</span><span>${item.notes || '-'}</span></div>
+            `;
+            document.getElementById('detailModal').classList.add('show');
+        }
+
+        function closeDetailModal() { document.getElementById('detailModal').classList.remove('show'); }
+
+        // ================= PEMINJAMAN & PENGEMBALIAN =================
+        function renderPeminjamanTable() {
+            const isEditor = activeUser.role === 'Editor';
+            const tbody = document.getElementById('peminjamanTableBody');
+
+            if (loanData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">Belum ada pengajuan peminjaman alat.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = loanData.map(l => {
+                let badgeClass = 'badge-warn';
+                if (l.status === 'Disetujui (Dipinjam)') badgeClass = 'badge-info';
+                if (l.status === 'Dikembalikan') badgeClass = 'badge-good';
+                if (l.status === 'Ditolak') badgeClass = 'badge-bad';
+
+                let actions = '-';
+                if (isEditor) {
+                    if (l.status === 'Menunggu Persetujuan') {
+                        actions = `
+                            <button class="btn btn-sky btn-sm" onclick="changeLoanStatus(${l.id}, 'Disetujui (Dipinjam)')">Setujui</button>
+                            <button class="btn btn-outline btn-sm" onclick="changeLoanStatus(${l.id}, 'Ditolak')">Tolak</button>
+                        `;
+                    } else if (l.status === 'Disetujui (Dipinjam)') {
+                        actions = `<button class="btn btn-primary btn-sm" onclick="changeLoanStatus(${l.id}, 'Dikembalikan')">Kembalikan</button>`;
+                    }
+                }
+
+                return `
+                    <tr>
+                        <td><strong>${l.borrowerName}</strong><br><small style="color:var(--text-muted)">${l.borrowerId}</small></td>
+                        <td><strong>${l.toolCode}</strong> - ${l.toolName}</td>
+                        <td>${l.qty} unit</td>
+                        <td>${l.borrowDate} s.d. ${l.returnDate}</td>
+                        <td><span class="badge ${badgeClass}">${l.status}</span></td>
+                        <td>${actions}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openBorrowModal(preselectCode = null) {
+            const availableTools = inventoryData.filter(t => t.goodCount > 0);
+            if (availableTools.length === 0) {
+                alert('Saat ini belum ada alat dengan stok Baik > 0 yang tersedia untuk dipinjam.');
+                return;
+            }
+
+            const select = document.getElementById('selectBorrowTool');
+            select.innerHTML = availableTools
+                .map(t => `<option value="${t.code}" ${t.code === preselectCode ? 'selected' : ''}>${t.code} - ${t.name} (Tersedia: ${t.goodCount} ${t.unit})</option>`)
+                .join('');
+
+            const nextDay = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+            document.getElementById('inputReturnDate').value = nextDay;
+            document.getElementById('borrowModal').classList.add('show');
+        }
+
+        function closeBorrowModal() { document.getElementById('borrowModal').classList.remove('show'); }
+
+        document.getElementById('borrowForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const code = document.getElementById('selectBorrowTool').value;
+            const tool = inventoryData.find(t => t.code === code);
+            const qty = parseInt(document.getElementById('inputBorrowQty').value);
+
+            if (!tool || qty > tool.goodCount) return alert('Jumlah melebihi stok baik yang tersedia!');
+
+            loanData.unshift({
+                id: Date.now(),
+                borrowerName: document.getElementById('inputBorrowerName').value,
+                borrowerId: document.getElementById('inputBorrowerNim').value,
+                toolCode: tool.code,
+                toolName: tool.name,
+                qty: qty,
+                borrowDate: new Date().toISOString().split('T')[0],
+                returnDate: document.getElementById('inputReturnDate').value,
+                status: 'Menunggu Persetujuan'
+            });
+
+            closeBorrowModal();
+            refreshSystem();
+            switchMenu('view-peminjaman');
+            showToast('Pengajuan peminjaman berhasil dikirim!');
+        });
+
+        function changeLoanStatus(loanId, status) {
+            const loan = loanData.find(l => l.id === loanId);
+            const tool = inventoryData.find(t => t.code === loan.toolCode);
+
+            if (status === 'Disetujui (Dipinjam)' && tool) {
+                if (tool.goodCount < loan.qty) return alert('Stok alat baik tidak mencukupi!');
+                tool.goodCount -= loan.qty;
+                if (tool.goodCount === 0) tool.status = 'Dipinjam';
+            } else if (status === 'Dikembalikan' && loan.status === 'Disetujui (Dipinjam)' && tool) {
+                tool.goodCount += loan.qty;
+                if (tool.status === 'Dipinjam') tool.status = 'Tersedia';
+            }
+
+            loan.status = status;
+            refreshSystem();
+            showToast(`Status peminjaman diperbarui: ${status}`);
+        }
+
+        // ================= KATEGORI, PETA PENYIMPANAN & PEMELIHARAAN =================
+        function renderDynamicCategoryAndStorage() {
+            const catGroups = {};
+            inventoryData.forEach(item => {
+                if (!catGroups[item.category]) catGroups[item.category] = [];
+                catGroups[item.category].push(item);
+            });
+
+            document.getElementById('dynamicCategoryGrid').innerHTML = Object.entries(catGroups).map(([cat, items]) => {
+                const totalUnits = items.reduce((s, i) => s + i.goodCount + i.brokenCount, 0);
+                const sampleNotes = items[0]?.notes || '';
+                return `
+                    <div class="category-card">
+                        <span class="cat-code">${items.length} JENIS ALAT</span>
+                        <h4 style="margin-bottom: 6px; color:var(--deep-navy);">${cat}</h4>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+                            <strong>Daftar:</strong> ${items.map(i => i.name).join(', ')}
+                        </p>
+                        ${sampleNotes ? `<p style="font-size: 0.76rem; color: #475569; background: var(--warm-cream); padding: 7px 9px; border-radius: 7px; margin-bottom: 10px;">💡 ${sampleNotes}</p>` : ''}
+                        <span class="badge badge-info">Total Kuantitas: ${totalUnits} Unit</span>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('panduanRakTableBody').innerHTML = PANDUAN_RAK_DATA.map(p => `
+                <tr>
+                    <td><strong>${p.lokasi}</strong></td>
+                    <td><span class="badge badge-info">${p.kategori}</span></td>
+                    <td>${p.catatan}</td>
+                </tr>
+            `).join('');
+
+            const cabGroups = {};
+            inventoryData.forEach(item => {
+                const lemariInduk = getCabinetGroup(item.location);
+                if (!cabGroups[lemariInduk]) cabGroups[lemariInduk] = {};
+                if (!cabGroups[lemariInduk][item.location]) cabGroups[lemariInduk][item.location] = [];
+                cabGroups[lemariInduk][item.location].push(item);
+            });
+
+            document.getElementById('dynamicStorageGrid').innerHTML = Object.entries(cabGroups).map(([lemari, racks]) => `
+                <div class="cabinet-box">
+                    <div class="cabinet-title">${lemari} <span>${Object.keys(racks).length} Slot</span></div>
+                    <div class="shelf-list">
+                        ${Object.entries(racks).map(([rack, items]) => `
+                            <div class="shelf-slot">
+                                <strong>${rack} (${items.length} Jenis Alat)</strong>
+                                <span>${items.map(i => `${i.name} (${i.code})`).join(' • ')}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            const brokenItems = inventoryData.filter(i => i.brokenCount > 0 || i.status === 'Dalam Perbaikan');
+            document.getElementById('maintenanceTableBody').innerHTML = brokenItems.length === 0
+                ? `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-muted);">Seluruh alat dalam kondisi baik.</td></tr>`
+                : brokenItems.map(i => `
+                    <tr>
+                        <td><strong>${i.code}</strong></td>
+                        <td>${i.name}</td>
+                        <td>${i.category}</td>
+                        <td>${i.location}</td>
+                        <td><span class="badge badge-bad">${i.brokenCount} ${i.unit} Rusak</span></td>
+                        <td><span class="badge badge-warn">${i.status}</span></td>
+                        <td>${i.notes || '-'}</td>
+                    </tr>
+                `).join('');
+        }
+
+        // ================= TAMBAH ALAT BARU (EDITOR) =================
+        function openAddToolModal() { document.getElementById('addToolModal').classList.add('show'); }
+        function closeAddToolModal() { document.getElementById('addToolModal').classList.remove('show'); }
+
+        document.getElementById('addToolForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const code = document.getElementById('newToolCode').value.trim().toUpperCase();
+            if (inventoryData.some(i => i.code === code)) {
+                return alert('Kode inventaris sudah digunakan! Gunakan kode yang unik.');
+            }
+
+            const good = parseInt(document.getElementById('newToolGood').value) || 0;
+            const broken = parseInt(document.getElementById('newToolBroken').value) || 0;
+            const total = good + broken;
+            const photoFile = document.getElementById('newToolPhotoFile').files[0];
+
+            const finalizeAdd = (photoDataUrl) => {
+                inventoryData.push({
+                    no: inventoryData.length + 1,
+                    code: code,
+                    name: document.getElementById('newToolName').value.trim(),
+                    category: document.getElementById('newToolCat').value.trim(),
+                    location: document.getElementById('newToolLocation').value.trim(),
+                    unit: document.getElementById('newToolUnit').value.trim(),
+                    goodCount: good,
+                    brokenCount: broken,
+                    totalQty: total,
+                    status: total > 0 ? 'Tersedia' : 'Dalam Perbaikan',
+                    notes: document.getElementById('newToolNotes').value.trim(),
+                    photo: photoDataUrl || ''
+                });
+
+                document.getElementById('addToolForm').reset();
+                closeAddToolModal();
+                populateFilterDropdowns();
+                refreshSystem();
+                showToast(`Alat baru ${code} berhasil ditambahkan!`);
+            };
+
+            if (photoFile) {
+                const reader = new FileReader();
+                reader.onload = (ev) => finalizeAdd(ev.target.result);
+                reader.readAsDataURL(photoFile);
+            } else {
+                finalizeAdd('');
+            }
+        });
+
+        function refreshSystem() {
+            saveToStorage();
+            updateDashboardMetricsAndCharts();
+            renderInventarisTable();
+            renderPeminjamanTable();
+            renderDynamicCategoryAndStorage();
+        }
+
+        populateFilterDropdowns();
+        refreshSystem();
+    </script>
+    <script src="app.js"></script>
+</body>
+</html> 
